@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reverseforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reverseforge}
+      POSTGRES_DB: ${POSTGRES_DB:-reverseforge}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-reverseforge}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  demo-target:
+    build:
+      context: ./apps/demo-target
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3100/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://reverseforge:reverseforge@postgres:5432/reverseforge
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DEMO_TARGET_URL: http://demo-target:3100
+      WEB_ORIGIN: http://localhost:3000
+      EXPORT_DIR: /app/exports
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./workers:/app/workers
+      - ./packages:/app/packages
+      - export_data:/app/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      demo-target:
+        condition: service_healthy
+    command: >
+      sh -c "cd /app/apps/api && alembic upgrade head &&
+             python -m app.scripts.seed_demo &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://reverseforge:reverseforge@postgres:5432/reverseforge
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DEMO_TARGET_URL: http://demo-target:3100
+      EXPORT_DIR: /app/exports
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./workers:/app/workers
+      - ./packages:/app/packages
+      - export_data:/app/exports
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      demo-target:
+        condition: service_healthy
+    command: >
+      sh -c "cd /app && celery -A workers.celery_app.app worker --loglevel=INFO --concurrency=2"
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  export_data:

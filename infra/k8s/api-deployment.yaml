@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reverseforge-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reverseforge-api
+  template:
+    metadata:
+      labels:
+        app: reverseforge-api
+    spec:
+      containers:
+        - name: api
+          image: reverseforge/api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: reverseforge-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reverseforge-api
+spec:
+  selector:
+    app: reverseforge-api
+  ports:
+    - port: 80
+      targetPort: 8000

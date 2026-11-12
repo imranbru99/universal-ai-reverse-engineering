@@ -1,0 +1,18 @@
+{
+  "name": "reverseforge-demo-bookstore",
+  "version": "0.1.0",
+  "private": true,
+  "author": {
+    "name": "Imran Ahmed",
+    "email": "me@imrandev.bd",
+    "url": "https://imrandev.bd"
+  },
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node smoke.js"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  }
+}

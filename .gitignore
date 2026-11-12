@@ -1,0 +1,42 @@
+# env & secrets
+.env
+.env.local
+*.pem
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+
+# node
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# ide / os
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# artifacts
+tmp/
+.uploads/
+exports/
+playwright-report/
+test-results/
+*.zip
+
+# docker volumes
+data/

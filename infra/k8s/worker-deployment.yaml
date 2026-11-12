@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reverseforge-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reverseforge-worker
+  template:
+    metadata:
+      labels:
+        app: reverseforge-worker
+    spec:
+      containers:
+        - name: worker
+          image: reverseforge/api:latest
+          command: ["celery", "-A", "workers.celery_app.app", "worker", "--loglevel=INFO"]
+          envFrom:
+            - secretRef:
+                name: reverseforge-secrets
